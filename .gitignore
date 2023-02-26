@@ -1,0 +1,9 @@
+input/
+output/
+__pychache__
+runs/
+weights/
+command_line
+cone
+traced_model.pt
+yolov7.pt
