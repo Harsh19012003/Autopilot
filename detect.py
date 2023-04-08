@@ -5,17 +5,19 @@ import numpy as np
 import os
 from scipy import optimize
 from matplotlib import pyplot as plt
-
+import tensorflow as tf
 import cv2
 import torch
 import torch.backends.cudnn as cudnn
 from numpy import random
-
+import sys
 import glob
 import utils
 from imutils.video import VideoStream
 from midas.model_loader import default_models, load_model
+# from keras.models import load_model
 
+# from imagee import process_image,weighted_img
 from models.experimental import attempt_load
 from utils.datasets import LoadStreams, LoadImages
 from utils.general import check_img_size, check_requirements, check_imshow, non_max_suppression, apply_classifier, \
@@ -23,8 +25,6 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
 
-
-from lane_detection import processImage, perspectiveWarp, plotHistogram, slide_window_search, general_search, draw_lane_lines
 from top_view_visualization import top_view
 from run import run
 
@@ -49,8 +49,12 @@ def detect(save_img=False):
     imgsz = check_img_size(imgsz, s=stride)  # check img_size
     print("Yolov7 model loaded")
     # Load model midas
-    model_midas, transform, net_w, net_h = load_model(device, opt.model_weights, opt.model_type, optimize, opt.height, opt.square)
+    model_midas, transform, net_w, net_h =load_model(device, opt.model_weights, opt.model_type, optimize, opt.height, opt.square)
     print("MiDaS model loaded")
+    # Load model segmentation
+    # model_lane=tf.keras.models.load_model('laneseg.h5')
+    # model_lane.summary()
+    # print("lane model loaded")
 
     if trace:
         model = TracedModel(model, device, opt.img_size)
@@ -77,9 +81,17 @@ def detect(save_img=False):
         view_img = check_imshow()
         cudnn.benchmark = True  # set True to speed up constant image size inference
         dataset = LoadStreams(source, img_size=imgsz, stride=stride)
-        print("LLLLLLLLLLLLLLLLLLLLLLLLl")
+        # print("LLLLLLLLLLLLLLLLLLLLLLLLl")
         print(type(dataset))
     else:
+        cap=cv2.VideoCapture(opt.source)
+        while True:
+            ret,frame=cap.read()
+            # print(sys.getsizeof(frame))
+            # print(frame)
+            cv2.imshow('frame',frame)
+            cv2.waitKey(0)
+
         dataset = LoadImages(source, img_size=imgsz, stride=stride)
 
     # Get names and colors
@@ -91,6 +103,7 @@ def detect(save_img=False):
         model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters())))  # run once
     t0 = time.time()
     for path, img, im0s, vid_cap in dataset:
+
         img = torch.from_numpy(img).to(device)
         img = img.half() if half else img.float()  # uint8 to fp16/32
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
@@ -163,7 +176,10 @@ def detect(save_img=False):
 
             # Midas run
             # run(im0, model_midas, transform, net_w, net_h, device, opt.input_path, opt.output_path, opt.model_type, opt.optimize, opt.side, opt.height, opt.square, opt.grayscale)
-
+            #lane detection ml
+            # lane_detection(im0s[0],model_lane)
+            # img_result = process_image(model_lane, im0s[0])
+        
             top_view(detection_base_points)
 
             '''# Lane detection cv2
@@ -247,6 +263,7 @@ if __name__ == '__main__':
                         help='Path to the trained weights of model'
                         )
 
+
     parser.add_argument('-t', '--model_type',
                         default='dpt_beit_large_512',
                         help='Model type: '
@@ -283,6 +300,13 @@ if __name__ == '__main__':
                              'which is used by default, is better for visibility, it does not allow storing 16-bit '
                              'depth values in PNGs but only 8-bit ones due to the precision limitation of this '
                              'colormap.'
+                        )
+    
+
+
+    parser.add_argument('--model_lane',
+                        default="weights/model2.h5",
+                        help='Path to the trained weights of model'
                         )
 
 
