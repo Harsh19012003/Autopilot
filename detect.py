@@ -5,12 +5,19 @@ import numpy as np
 import os
 from scipy import optimize
 from matplotlib import pyplot as plt
-
+import tensorflow as tf
 import cv2
 import torch
 import torch.backends.cudnn as cudnn
 from numpy import random
+import sys
+import glob
+import utils
+from imutils.video import VideoStream
+from midas.model_loader import default_models, load_model
+# from keras.models import load_model
 
+# from imagee import process_image,weighted_img
 from models.experimental import attempt_load
 from utils.datasets import LoadStreams, LoadImages
 from utils.general import check_img_size, check_requirements, check_imshow, non_max_suppression, apply_classifier, \
@@ -18,8 +25,8 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
 
-
-from lane_detection import processImage, perspectiveWarp, plotHistogram, slide_window_search, general_search, draw_lane_lines
+from top_view_visualization import top_view
+from run import run
 
 def detect(save_img=False):
     source, weights, view_img, save_txt, imgsz, trace = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace
@@ -31,15 +38,23 @@ def detect(save_img=False):
     save_dir = Path(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok))  # increment run
     (save_dir / 'labels' if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
 
-    # Initialize
+    # Initialize yolov7
     set_logging()
     device = select_device(opt.device)
     half = device.type != 'cpu'  # half precision only supported on CUDA
 
-    # Load model
+    # Load model yolov7
     model = attempt_load(weights, map_location=device)  # load FP32 model
     stride = int(model.stride.max())  # model stride
     imgsz = check_img_size(imgsz, s=stride)  # check img_size
+    print("Yolov7 model loaded")
+    # Load model midas
+    model_midas, transform, net_w, net_h =load_model(device, opt.model_weights, opt.model_type, optimize, opt.height, opt.square)
+    print("MiDaS model loaded")
+    # Load model segmentation
+    # model_lane=tf.keras.models.load_model('laneseg.h5')
+    # model_lane.summary()
+    # print("lane model loaded")
 
     if trace:
         model = TracedModel(model, device, opt.img_size)
@@ -54,12 +69,29 @@ def detect(save_img=False):
         modelc.load_state_dict(torch.load('weights/resnet101.pt', map_location=device)['model']).to(device).eval()
 
     # Set Dataloader
+    # FOR TESTING INPUT VIA DROIDCAM PORT
+    '''vid = cv2.VideoCapture(2)
+    while(True):
+        ret, frame = vid.read()
+        cv2.imshow('frame', frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break'''
     vid_path, vid_writer = None, None
     if webcam:
         view_img = check_imshow()
         cudnn.benchmark = True  # set True to speed up constant image size inference
         dataset = LoadStreams(source, img_size=imgsz, stride=stride)
+        # print("LLLLLLLLLLLLLLLLLLLLLLLLl")
+        print(type(dataset))
     else:
+        cap=cv2.VideoCapture(opt.source)
+        while True:
+            ret,frame=cap.read()
+            # print(sys.getsizeof(frame))
+            # print(frame)
+            cv2.imshow('frame',frame)
+            cv2.waitKey(0)
+
         dataset = LoadImages(source, img_size=imgsz, stride=stride)
 
     # Get names and colors
@@ -89,6 +121,10 @@ def detect(save_img=False):
         if classify:
             pred = apply_classifier(pred, modelc, img, im0s)
 
+        midas_img = run(im0s[0], model_midas, transform, net_w, net_h, device, opt.input_path, opt.output_path, opt.model_type, opt.optimize, opt.side, opt.height, opt.square, opt.grayscale)
+
+        detection_base_points = []
+
         # Process detections
         for i, det in enumerate(pred):  # detections per image
             if webcam:  # batch_size >= 1
@@ -111,6 +147,7 @@ def detect(save_img=False):
                     s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
 
                 # Write results
+                
                 for *xyxy, conf, cls in reversed(det):
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
@@ -120,16 +157,31 @@ def detect(save_img=False):
 
                     if save_img or view_img:  # Add bbox to image
                         label = f'{names[int(cls)]} {conf:.2f}'
-                        plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
+                        plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2)
+                        plot_one_box(xyxy, midas_img, label=label, color=None, line_thickness=1)
+
+                    detection_base_points.append((int((int(xyxy[0])+int(xyxy[2]))/2), int(xyxy[3])))
+                # print(f"detection_base_points: {detection_base_points}")
 
             # Print time (inference + NMS)
-            #print(f'{s}Done. ({t2 - t1:.3f}s)')
+            print(f'YOLOv4 FPS: {t2 - t1:.3f}')
 
             # Stream results
             if view_img:
                 cv2.imshow(str(p), im0)
+                cv2.waitKey(1)
+                cv2.imshow("midas", midas_img)
                 cv2.waitKey(1)  # 1 millisecond
 
+            # Midas run
+            # run(im0, model_midas, transform, net_w, net_h, device, opt.input_path, opt.output_path, opt.model_type, opt.optimize, opt.side, opt.height, opt.square, opt.grayscale)
+            #lane detection ml
+            # lane_detection(im0s[0],model_lane)
+            # img_result = process_image(model_lane, im0s[0])
+        
+            top_view(detection_base_points)
+
+            '''# Lane detection cv2
             frame = cv2.resize(im0, (1280, 720))
 
             birdView, minverse = perspectiveWarp(frame)
@@ -142,8 +194,9 @@ def detect(save_img=False):
             draw_info = general_search(thresh, left_fit, right_fit)
             # Filling the area of detected lanes with green
             result = draw_lane_lines(frame, thresh, minverse, draw_info)
-
-            cv2.imshow("Final", result) #finalImg
+            # print(type(result))
+            
+            # cv2.imshow("Final", result) #finalImg'''
 
             # Save results (image with detections)
             if save_img:
@@ -163,7 +216,7 @@ def detect(save_img=False):
                             fps, w, h = 30, im0.shape[1], im0.shape[0]
                             save_path += '.mp4'
                         vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
-                    vid_writer.write(result)
+                    vid_writer.write(im0)
 
     if save_txt or save_img:
         s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
@@ -192,6 +245,70 @@ if __name__ == '__main__':
     parser.add_argument('--name', default='exp', help='save results to project/name')
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     parser.add_argument('--no-trace', action='store_true', help='don`t trace model')
+
+    parser.add_argument('-i', '--input_path',
+                        default=None,
+                        help='Folder with input images (if no input path is specified, images are tried to be grabbed '
+                             'from camera)'
+                        )
+
+    parser.add_argument('-o', '--output_path',
+                        default=None,
+                        help='Folder for output images'
+                        )
+
+    parser.add_argument('-m', '--model_weights',
+                        default="weights/dpt_swin2_tiny_256.pt",
+                        help='Path to the trained weights of model'
+                        )
+
+
+    parser.add_argument('-t', '--model_type',
+                        default='dpt_beit_large_512',
+                        help='Model type: '
+                             'dpt_beit_large_512, dpt_beit_large_384, dpt_beit_base_384, dpt_swin2_large_384, '
+                             'dpt_swin2_base_384, dpt_swin2_tiny_256, dpt_swin_large_384, dpt_next_vit_large_384, '
+                             'dpt_levit_224, dpt_large_384, dpt_hybrid_384, midas_v21_384, midas_v21_small_256 or '
+                             'openvino_midas_v21_small_256'
+                        )
+
+    parser.add_argument('-s', '--side',
+                        action='store_true',
+                        help='Output images contain RGB and depth images side by side'
+                        )
+
+    parser.add_argument('--optimize', dest='optimize', action='store_true', help='Use half-float optimization')
+    parser.set_defaults(optimize=False)
+
+    parser.add_argument('--height',
+                        type=int, default=None,
+                        help='Preferred height of images feed into the encoder during inference. Note that the '
+                             'preferred height may differ from the actual height, because an alignment to multiples of '
+                             '32 takes place. Many models support only the height chosen during training, which is '
+                             'used automatically if this parameter is not set.'
+                        )
+    parser.add_argument('--square',
+                        action='store_true',
+                        help='Option to resize images to a square resolution by changing their widths when images are '
+                             'fed into the encoder during inference. If this parameter is not set, the aspect ratio of '
+                             'images is tried to be preserved if supported by the model.'
+                        )
+    parser.add_argument('--grayscale',
+                        action='store_true',
+                        help='Use a grayscale colormap instead of the inferno one. Although the inferno colormap, '
+                             'which is used by default, is better for visibility, it does not allow storing 16-bit '
+                             'depth values in PNGs but only 8-bit ones due to the precision limitation of this '
+                             'colormap.'
+                        )
+    
+
+
+    parser.add_argument('--model_lane',
+                        default="weights/model2.h5",
+                        help='Path to the trained weights of model'
+                        )
+
+
     opt = parser.parse_args()
     print(opt)
     #check_requirements(exclude=('pycocotools', 'thop'))

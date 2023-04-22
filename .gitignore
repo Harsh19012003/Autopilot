@@ -1,0 +1,10 @@
+input_images/
+input/
+output/
+__pycache__
+runs/
+weights/
+command_line.txt
+traced_model.pt
+yolov7.pt
+venv/
