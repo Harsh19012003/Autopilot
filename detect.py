@@ -147,7 +147,6 @@ def detect(save_img=False):
                     s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
 
                 # Write results
-                
                 for *xyxy, conf, cls in reversed(det):
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
@@ -161,7 +160,6 @@ def detect(save_img=False):
                         plot_one_box(xyxy, midas_img, label=label, color=None, line_thickness=1)
 
                     detection_base_points.append((int((int(xyxy[0])+int(xyxy[2]))/2), int(xyxy[3])))
-                # print(f"detection_base_points: {detection_base_points}")
 
             # Print time (inference + NMS)
             print(f'YOLOv4 FPS: {t2 - t1:.3f}')
@@ -171,14 +169,8 @@ def detect(save_img=False):
                 cv2.imshow(str(p), im0)
                 cv2.waitKey(1)
                 cv2.imshow("midas", midas_img)
-                cv2.waitKey(1)  # 1 millisecond
+                cv2.waitKey(1)  
 
-            # Midas run
-            # run(im0, model_midas, transform, net_w, net_h, device, opt.input_path, opt.output_path, opt.model_type, opt.optimize, opt.side, opt.height, opt.square, opt.grayscale)
-            #lane detection ml
-            # lane_detection(im0s[0],model_lane)
-            # img_result = process_image(model_lane, im0s[0])
-        
             top_view(detection_base_points)
 
             '''# Lane detection cv2
