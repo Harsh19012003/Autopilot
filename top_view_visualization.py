@@ -1,6 +1,7 @@
 import cv2
 import imutils
 import numpy as np
+from astar import path_planning
 def top_view(points):
     # print("entered tpv")
     # initialize image
@@ -15,8 +16,9 @@ def top_view(points):
 
 
     # is point pe image aana chahiye
-    #external_points_set = ((0, 0), (200, 200), (100, 100), (135, 265), (150, 200), (299, 150), (389, 473), (378, 465), (500, 500))
-    external_points_set = points
+    # external_points_set = [(400,150 ), (350, 300), (70, 200), (210, 110)]
+    external_points_set = [(250,250 ),(350,100 ), (70, 200),(200,400)]
+    # external_points_set = points
 
     # print(f"external_points_set: {external_points_set}")
 
@@ -65,6 +67,17 @@ def top_view(points):
         dst = cv2.add(img1_bg,img2_fg)
         background[x:rows+x, y:cols+y ] = dst
 
+
+
+    path=path_planning(external_points_set)
+    if path!=None:        
+        for i in path:
+            background= cv2.circle(background,(i[1],i[0]), radius=0, color=(188, 145, 42), thickness=-1)
+    else:
+        pass
+
+    
     cv2.imshow('top_view',background)
     cv2.waitKey(1)
+    # print(path)
     return
