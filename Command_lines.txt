@@ -1,0 +1,5 @@
+conda activate testing
+python detect.py --model_type dpt_swin2_tiny_256 --output_path output --optimize --no-trace --source 0 
+python run.py --model_type dpt_swin2_tiny_256  --input_path input --output_path output
+or
+python run.py --model_type dpt_swin2_tiny_256 --output_path output --optimize --side
