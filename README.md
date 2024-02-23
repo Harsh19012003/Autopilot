@@ -1,6 +1,6 @@
 
 # Autopilot: An advanced perception, localization and path planning techniques for autonomous vehicles using YOLOv7 and MiDaS 
-
+## Research Paper 📄
 Implementation of paper -  [Devmurari, Harshkumar, Gautham Kuckian, and Prajjwal Vishwakarma. "AUTOPILOT: An Advanced Perception, Localization and Path Planning Techniques for Autonomous Vehicles using YOLOv7 and MiDaS."(ICACTA), IEEE, 2023](https://ieeexplore.ieee.org/document/10393218)
 
 
