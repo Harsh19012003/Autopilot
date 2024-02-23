@@ -80,6 +80,17 @@ Run
 #### Output figure of Path Planning
 ![path](https://github.com/Harsh19012003/Autopilot/assets/94838404/672d1881-c9ae-4d6c-92e6-8c1a1bdc1043)
 
+## Citation
+```
+@inproceedings{devmurari2023autopilot,
+  title={AUTOPILOT: An Advanced Perception, Localization and Path Planning Techniques for Autonomous Vehicles using YOLOv7 and MiDaS},
+  author={Devmurari, Harshkumar and Kuckian, Gautham and Vishwakarma, Prajjwal},
+  booktitle={2023 International Conference on Advanced Computing Technologies and Applications (ICACTA)},
+  pages={1--7},
+  year={2023},
+  organization={IEEE}
+}
+```
 ## Feedback 📝
 
 If you have any feedback, please reach out to us at harshdevmurari007@gmail.com
